@@ -39,6 +39,7 @@ const courseSchema = new mongoose.Schema({
     remarks: { type: String, default: '' },
     fileUrl: { type: String, default: '' },
     fileName: { type: String, default: '' },
+    publicId: { type: String, default: '' },
     uploadedAt: { type: Date }
   }],
   createdAt: {

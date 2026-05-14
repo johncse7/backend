@@ -30,12 +30,16 @@ const userRoutes = require('./routes/users');
 const courseRoutes = require('./routes/courses');
 const departmentRoutes = require('./routes/departments');
 const fileRoutes = require('./routes/files');
+const uploadRoutes = require('./routes/upload');
+const contentRoutes = require('./routes/content');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/content', contentRoutes);
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {

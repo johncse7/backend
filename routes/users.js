@@ -35,6 +35,51 @@ router.get('/profile', protect, async (req, res) => {
   res.json(req.user);
 });
 
+// @desc    Update password
+// @route   PUT /api/users/profile/password
+// @access  Private
+router.put('/profile/password', protect, async (req, res) => {
+  const { current, new: newPass } = req.body;
+  try {
+    const user = await User.findById(req.user._id);
+    if (user && (await user.matchPassword(current))) {
+      user.password = newPass;
+      await user.save();
+      res.json({ message: 'Password updated successfully' });
+    } else {
+      res.status(401).json({ message: 'Invalid current password' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Update profile info
+// @route   PUT /api/users/profile
+// @access  Private
+router.put('/profile', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (user) {
+      user.name = req.body.name || user.name;
+      user.profilePic = req.body.profilePic || user.profilePic;
+      
+      const updatedUser = await user.save();
+      res.json({
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        profilePic: updatedUser.profilePic
+      });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @desc    Update user (Admin only for role/dept)
 // @route   PUT /api/users/:id
 // @access  Private/Admin
@@ -57,25 +102,6 @@ router.delete('/:id', protect, authorize('admin'), async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     await user.deleteOne();
     res.json({ message: 'User removed' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// @desc    Update password
-// @route   PUT /api/users/profile/password
-// @access  Private
-router.put('/profile/password', protect, async (req, res) => {
-  const { current, new: newPass } = req.body;
-  try {
-    const user = await User.findById(req.user._id);
-    if (user && (await user.matchPassword(current))) {
-      user.password = newPass;
-      await user.save();
-      res.json({ message: 'Password updated successfully' });
-    } else {
-      res.status(401).json({ message: 'Invalid current password' });
-    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

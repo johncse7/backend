@@ -23,6 +23,18 @@ const userSchema = new mongoose.Schema({
   department: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Department'
+  },
+  designation: {
+    type: String,
+    default: ''
+  },
+  profilePic: {
+    type: String,
+    default: ''
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 });
 

@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const Course = require('../models/Course');
+const { courseStorage, cloudinary } = require('../config/cloudinary');
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+
+const upload = multer({ storage: courseStorage });
 
 const defaultSections = [
   'CIS', 'LP', 'Timetable', 'Lecture / Content', 'Unitwise Q Bank',
@@ -14,22 +15,6 @@ const defaultSections = [
   'Assignments / Class Test Questions', 'Sample Assignments',
   'Course Beyond Syllabus', 'Student Roll List', 'Course End Survey'
 ];
-
-// Multer Config for Section Uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = 'uploads/sections/';
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
-});
-
-const upload = multer({ storage });
 
 // @desc    Get all courses
 // @route   GET /api/courses
@@ -42,6 +27,18 @@ router.get('/', protect, async (req, res) => {
     if (semester) query.semester = semester;
 
     const courses = await Course.find(query).populate('department', 'name code');
+    res.json(courses);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Get courses assigned to logged in faculty
+// @route   GET /api/courses/my-courses
+// @access  Private/Faculty
+router.get('/my-courses', protect, authorize('faculty'), async (req, res) => {
+  try {
+    const courses = await Course.find({ faculty: req.user._id }).populate('department', 'name code');
     res.json(courses);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -102,6 +99,14 @@ router.delete('/:id', protect, authorize('admin'), async (req, res) => {
   try {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: 'Course not found' });
+    
+    // Optional: Delete all files in sections from Cloudinary
+    for (const section of course.sections) {
+      if (section.publicId) {
+        await cloudinary.uploader.destroy(section.publicId);
+      }
+    }
+
     await course.deleteOne();
     res.json({ message: 'Course removed' });
   } catch (error) {
@@ -135,9 +140,15 @@ router.put('/:id/sections/:sectionId', protect, async (req, res) => {
 // @desc    Upload file to section
 // @route   POST /api/courses/:id/sections/:sectionId/upload
 // @access  Private
-router.post('/:id/sections/:sectionId/upload', protect, upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+router.post('/:id/sections/:sectionId/upload', protect, (req, res) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      console.error('Multer/Cloudinary Error:', err);
+      return res.status(500).json({ message: err.message || 'Upload failed during processing' });
+    }
+    
+    try {
+      if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: 'Course not found' });
@@ -145,15 +156,14 @@ router.post('/:id/sections/:sectionId/upload', protect, upload.single('file'), a
     const section = course.sections.id(req.params.sectionId);
     if (!section) return res.status(404).json({ message: 'Section not found' });
 
-    // Delete old file if exists
-    if (section.fileUrl) {
-      if (fs.existsSync(section.fileUrl)) {
-        fs.unlinkSync(section.fileUrl);
-      }
+    // Delete old file from Cloudinary if exists
+    if (section.publicId) {
+      await cloudinary.uploader.destroy(section.publicId);
     }
 
     section.fileUrl = req.file.path;
     section.fileName = req.file.originalname;
+    section.publicId = req.file.filename; // Cloudinary returns public_id as filename in multer-storage-cloudinary
     section.uploadedAt = new Date();
     section.status = 'Uploaded';
 
@@ -162,6 +172,7 @@ router.post('/:id/sections/:sectionId/upload', protect, upload.single('file'), a
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+  });
 });
 
 // @desc    Delete file from section
@@ -175,14 +186,13 @@ router.delete('/:id/sections/:sectionId/file', protect, async (req, res) => {
     const section = course.sections.id(req.params.sectionId);
     if (!section) return res.status(404).json({ message: 'Section not found' });
 
-    if (section.fileUrl) {
-      if (fs.existsSync(section.fileUrl)) {
-        fs.unlinkSync(section.fileUrl);
-      }
+    if (section.publicId) {
+      await cloudinary.uploader.destroy(section.publicId);
     }
 
     section.fileUrl = '';
     section.fileName = '';
+    section.publicId = '';
     section.uploadedAt = undefined;
     section.status = 'Pending';
 
@@ -204,8 +214,8 @@ router.get('/:id/sections/:sectionId/download', protect, async (req, res) => {
     const section = course.sections.id(req.params.sectionId);
     if (!section || !section.fileUrl) return res.status(404).json({ message: 'File not found' });
 
-    const filePath = path.join(__dirname, '..', section.fileUrl);
-    res.download(filePath, section.fileName);
+    // For Cloudinary, we just redirect to the secure URL
+    res.redirect(section.fileUrl);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

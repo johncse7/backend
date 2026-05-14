@@ -65,6 +65,36 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// @desc    Authenticate faculty & get token
+// @route   POST /api/auth/faculty-login
+// @access  Public
+router.post('/faculty-login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    // Ensure the user has the faculty role
+    if (user && user.role === 'faculty' && (await user.matchPassword(password))) {
+      res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        designation: user.designation,
+        profilePic: user.profilePic,
+        token: generateToken(user._id)
+      });
+    } else if (user && user.role !== 'faculty') {
+      res.status(403).json({ message: 'Access denied. Only faculty can login here.' });
+    } else {
+      res.status(401).json({ message: 'Invalid email or password' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Generate JWT
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
