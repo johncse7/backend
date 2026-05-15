@@ -141,14 +141,17 @@ router.put('/:id/sections/:sectionId', protect, async (req, res) => {
 // @route   POST /api/courses/:id/sections/:sectionId/upload
 // @access  Private
 router.post('/:id/sections/:sectionId/upload', protect, (req, res) => {
+  console.log('Upload request received for course:', req.params.id, 'section:', req.params.sectionId);
   upload.single('file')(req, res, async (err) => {
     if (err) {
-      console.error('Multer/Cloudinary Error:', err);
+      console.error('Multer/Cloudinary Upload Error:', err.message, err.stack);
       return res.status(500).json({ message: err.message || 'Upload failed during processing' });
     }
     
     try {
       if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+      console.log('File uploaded to Cloudinary:', req.file.path, 'public_id:', req.file.filename);
 
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: 'Course not found' });
@@ -170,6 +173,7 @@ router.post('/:id/sections/:sectionId/upload', protect, (req, res) => {
     await course.save();
     res.json(course);
   } catch (error) {
+    console.error('Section upload catch error:', error.message, error.stack);
     res.status(500).json({ message: error.message });
   }
   });
