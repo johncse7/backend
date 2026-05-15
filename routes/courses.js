@@ -36,7 +36,7 @@ router.get('/', protect, async (req, res) => {
 // @desc    Get courses assigned to logged in faculty
 // @route   GET /api/courses/my-courses
 // @access  Private/Faculty
-router.get('/my-courses', protect, authorize('faculty'), async (req, res) => {
+router.get('/my-courses', protect, authorize('faculty', 'admin'), async (req, res) => {
   try {
     const courses = await Course.find({ faculty: req.user._id }).populate('department', 'name code');
     res.json(courses);

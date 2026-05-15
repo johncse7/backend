@@ -13,7 +13,7 @@ const upload = multer({ storage: courseStorage });
 // @desc    Upload course content
 // @route   POST /api/content/upload
 // @access  Private/Faculty
-router.post('/upload', protect, authorize('faculty'), (req, res) => {
+router.post('/upload', protect, authorize('faculty', 'admin'), (req, res) => {
   upload.single('file')(req, res, async (err) => {
     if (err) {
       console.error('Multer/Cloudinary Error:', err);
@@ -59,7 +59,7 @@ router.post('/upload', protect, authorize('faculty'), (req, res) => {
 // @desc    Get logged in faculty's uploads
 // @route   GET /api/content/my-uploads
 // @access  Private/Faculty
-router.get('/my-uploads', protect, authorize('faculty'), async (req, res) => {
+router.get('/my-uploads', protect, authorize('faculty', 'admin'), async (req, res) => {
   try {
     const { courseId, search } = req.query;
     let query = { facultyId: req.user._id };
@@ -101,7 +101,7 @@ router.get('/all', protect, authorize('admin'), async (req, res) => {
 // @desc    Update course content
 // @route   PUT /api/content/:id
 // @access  Private/Faculty
-router.put('/:id', protect, authorize('faculty'), async (req, res) => {
+router.put('/:id', protect, authorize('faculty', 'admin'), async (req, res) => {
   try {
     const { title, description } = req.body;
     const content = await CourseContent.findOne({ _id: req.params.id, facultyId: req.user._id });
@@ -123,7 +123,7 @@ router.put('/:id', protect, authorize('faculty'), async (req, res) => {
 // @desc    Delete course content
 // @route   DELETE /api/content/:id
 // @access  Private/Faculty
-router.delete('/:id', protect, authorize('faculty'), async (req, res) => {
+router.delete('/:id', protect, authorize('faculty', 'admin'), async (req, res) => {
   try {
     const content = await CourseContent.findOne({ _id: req.params.id, facultyId: req.user._id });
 
